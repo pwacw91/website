@@ -25,3 +25,5 @@ window.addEventListener('DOMContentLoaded', async () => {
     listContainer.innerHTML = '获取数据失败，请检查后端是否启动。';
   }
 });
+
+window.alert(16 + "adad")

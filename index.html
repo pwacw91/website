@@ -3,23 +3,240 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>我的公开网页</title>
-  <link rel="stylesheet" href="style.css">
+  <title>开发者人格测试</title>
+  <style>
+    /* ================= 基础样式 ================= */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .app-container {
+      background: white;
+      width: 100%;
+      max-width: 480px;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      transition: all 0.3s ease;
+    }
+    .hidden { display: none !important; }
+    
+    /* ================= 按钮样式 ================= */
+    button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5568d3; transform: translateY(-2px); }
+    .btn-option {
+      background: #f0f2f5;
+      color: #333;
+      margin-bottom: 12px;
+      text-align: left;
+      padding: 16px 20px;
+    }
+    .btn-option:hover { background: #e4e6eb; border-left: 4px solid #667eea; }
+
+    /* ================= 进度条 ================= */
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #eee;
+      border-radius: 4px;
+      margin-bottom: 30px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #667eea;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    /* ================= 结果展示 ================= */
+    .result-title { font-size: 28px; color: #333; text-align: center; margin-bottom: 10px; }
+    .result-desc { font-size: 16px; color: #666; text-align: center; line-height: 1.8; margin-bottom: 30px; }
+    .result-emoji { font-size: 60px; text-align: center; display: block; margin-bottom: 20px; }
+  </style>
 </head>
 <body>
-  <h1>你好，社会主义接班人！</h1>
 
+<div class="app-container">
+  <!-- 1. 开始界面 -->
+  <div id="start-screen">
+    <h1 style="text-align: center; color: #333; margin-bottom: 10px;">开发者人格测试</h1>
+    <p style="text-align: center; color: #666; margin-bottom: 30px;">回答 4 个问题，看看你是哪种类型的开发者</p>
+    <button class="btn-primary" onclick="startQuiz()">开始测试</button>
+  </div>
 
-  <p></p>
-  <button onclick="sayHello()">点我</button>
+  <!-- 2. 答题界面 -->
+  <div id="quiz-screen" class="hidden">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <h2 id="question-text" style="color: #333; margin-bottom: 25px; font-size: 20px;"></h2>
+    <div id="options-container"></div>
+  </div>
 
-  <h2>你是谁：</h2>
-  <ul id="data-list">加载中...</ul>
+  <!-- 3. 结果界面 -->
+  <div id="result-screen" class="hidden">
+    <span class="result-emoji" id="result-emoji"></span>
+    <h1 class="result-title" id="result-title"></h1>
+    <p class="result-desc" id="result-desc"></p>
+    <button class="btn-primary" onclick="restartQuiz()">重新测试</button>
+  </div>
+</div>
 
-  <script src="script.js"></script>
+<script>
+// ================= 数据层（类似 WPF 的 ViewModel） =================
+// 题目数据
+const questions = [
+  {
+    text: "当你面对一个全新的前端框架时，你的第一反应是？",
+    options: [
+      { text: "先通读官方文档，搞懂设计原理", type: "theorist" },
+      { text: "直接新建项目，一边写一边查", type: "practitioner" }
+    ]
+  },
+  {
+    text: "写代码时，你更看重以下哪一点？",
+    options: [
+      { text: "代码结构清晰，类型安全，易于维护", type: "architect" },
+      { text: "快速出效果，先跑通再说，后面再重构", type: "hacker" }
+    ]
+  },
+  {
+    text: "遇到一个诡异的 Bug，你会先？",
+    options: [
+      { text: "打开浏览器控制台，看报错和调用栈", type: "debugger" },
+      { text: "凭直觉修改代码，刷新页面看看变化", type: "intuitive" }
+    ]
+  },
+  {
+    text: "你更享受哪种开发工作？",
+    options: [
+      { text: "设计底层架构、数据库表结构和 API 接口", type: "backend" },
+      { text: "实现页面交互、动画效果和组件封装", type: "frontend" }
+    ]
+  }
+];
+
+// 结果数据
+const results = {
+  theorist: { emoji: "📚", title: "理论派学者", desc: "你注重基础原理，喜欢从文档和源码中寻找答案。你的代码严谨且可靠，是团队里的技术定海神针。" },
+  practitioner: { emoji: "🔨", title: "实战派极客", desc: "你崇尚“Talk is cheap, show me the code”。你上手极快，能在短时间内做出可用的原型，是团队里的突击手。" },
+  architect: { emoji: "🏛️", title: "架构师", desc: "你对代码质量有极高的要求，喜欢用 TypeScript 和设计模式。你的代码像艺术品一样优雅，但有时可能会过度设计。" },
+  hacker: { emoji: "🚀", title: "黑客型开发者", desc: "你追求极致的开发速度，能用最少的代码实现最多的功能。你相信“先完成再完美”，但要注意技术债。" },
+  debugger: { emoji: "🐞", title: "严谨的调试者", desc: "你相信证据，不靠猜测。你擅长利用工具定位问题，你的耐心和逻辑思维让你能解决最棘手的 Bug。" },
+  intuitive: { emoji: "🔮", title: "直觉型开发者", desc: "你有着惊人的代码直觉，经常能凭感觉找到问题所在。你适合快速迭代的项目，但偶尔会忽略细节。" },
+  backend: { emoji: "⚙️", title: "后端逻辑控", desc: "你更喜欢处理数据、算法和服务器逻辑。你对数据库优化和高并发有深入研究，是系统稳定的基石。" },
+  frontend: { emoji: "🎨", title: "前端体验官", desc: "你对用户体验有敏锐的感知，喜欢用 CSS 和动画创造流畅的交互。你相信好的设计能改变世界。" }
+};
+
+// ================= 状态管理（类似 WPF 的 Dependency Property） =================
+let currentQuestionIndex = 0;
+let userAnswers = [];
+
+// ================= 业务逻辑层 =================
+
+// 获取 DOM 元素
+const startScreen = document.getElementById('start-screen');
+const quizScreen = document.getElementById('quiz-screen');
+const resultScreen = document.getElementById('result-screen');
+const progressFill = document.getElementById('progress-fill');
+const questionText = document.getElementById('question-text');
+const optionsContainer = document.getElementById('options-container');
+
+// 1. 开始测试
+function startQuiz() {
+  currentQuestionIndex = 0;
+  userAnswers = [];
+  startScreen.classList.add('hidden');
+  quizScreen.classList.remove('hidden');
+  resultScreen.classList.add('hidden');
+  renderQuestion();
+}
+
+// 2. 渲染当前题目（类似 WPF 的 DataTemplate）
+function renderQuestion() {
+  const question = questions[currentQuestionIndex];
+  
+  // 更新进度条
+  const progress = ((currentQuestionIndex) / questions.length) * 100;
+  progressFill.style.width = `${progress}%`;
+
+  // 更新题目文本
+  questionText.innerText = question.text;
+
+  // 清空并渲染选项
+  optionsContainer.innerHTML = '';
+  question.options.forEach((option, index) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-option';
+    btn.innerText = option.text;
+    btn.onclick = () => selectOption(option.type);
+    optionsContainer.appendChild(btn);
+  });
+}
+
+// 3. 选择选项（事件处理）
+function selectOption(type) {
+  userAnswers.push(type);
+  currentQuestionIndex++;
+
+  if (currentQuestionIndex < questions.length) {
+    renderQuestion();
+  } else {
+    showResult();
+  }
+}
+
+// 4. 显示结果（计算属性）
+function showResult() {
+  quizScreen.classList.add('hidden');
+  resultScreen.classList.remove('hidden');
+
+  // 简单的计分逻辑：统计哪种类型出现次数最多
+  const counts = {};
+  userAnswers.forEach(type => {
+    counts[type] = (counts[type] || 0) + 1;
+  });
+
+  // 找出出现次数最多的类型
+  let maxType = userAnswers[0];
+  let maxCount = 0;
+  for (const type in counts) {
+    if (counts[type] > maxCount) {
+      maxCount = counts[type];
+      maxType = type;
+    }
+  }
+
+  // 渲染结果
+  const result = results[maxType];
+  document.getElementById('result-emoji').innerText = result.emoji;
+  document.getElementById('result-title').innerText = result.title;
+  document.getElementById('result-desc').innerText = result.desc;
+}
+
+// 5. 重新开始
+function restartQuiz() {
+  startScreen.classList.remove('hidden');
+  quizScreen.classList.add('hidden');
+  resultScreen.classList.add('hidden');
+}
+</script>
+
 </body>
-
-
-
-
 </html>
